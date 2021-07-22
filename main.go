@@ -6,10 +6,19 @@ import (
 	"net"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/miekg/dns"
+	"github.com/qiangxue/go-env"
 )
 
-type dnsServer struct {
+type donotshoutServer struct {
+	Host            string
+	Port            int16
+	Protocol        string
+	MinJitter       int32
+	MaxJitter       int32
+	TruncatePercent int
+	DropPercent     int
 }
 
 var chaos *rand.Rand
@@ -18,15 +27,15 @@ func chaosRanged(bottom, top int32) int32 {
 	return bottom + (chaos.Int31() % top)
 }
 
-func chaosDo(chances int) bool {
-	return chaos.Int()%chances == 0
+func chaosDo(chance int) bool {
+	return chaos.Int()%100 <= chance
 }
 
-func (srv *dnsServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
+func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 	for _, q := range r.Question {
 		if q.Qtype == dns.TypeA {
 			fmt.Printf("A QUERY=%+v\n", q)
-			jitter := chaosRanged(1, 5000)
+			jitter := chaosRanged(srv.MinJitter, srv.MaxJitter)
 			if jitter >= 1000 {
 				fmt.Printf("jitter=%d\n", jitter)
 			}
@@ -50,21 +59,41 @@ func (srv *dnsServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 				A: net.ParseIP("127.0.0.1"),
 			})
 			data, _ := r.Pack()
-			if chaosDo(10) == true {
+
+			if chaosDo(srv.DropPercent) == true {
+				fmt.Println("dropped packet")
+				return
+			}
+
+			if chaosDo(srv.TruncatePercent) == true {
 				fmt.Println("truncated packet")
 				data = data[0:chaosRanged(1, int32(len(data)-1))]
 			}
-			if chaosDo(10) == true {
-				fmt.Println("dropped packet")
-			} else {
-				rw.Write(data)
-			}
+
+			rw.Write(data)
 		}
 	}
 }
 
 func main() {
+	godotenv.Load()
 	chaos = rand.New(rand.NewSource(time.Now().Unix()))
-	srv := &dnsServer{}
-	dns.ListenAndServe("0.0.0.0:53", "tcp", srv)
+	srv := &donotshoutServer{
+		Host:            "127.0.0.1",
+		Port:            5333,
+		Protocol:        "udp",
+		MinJitter:       1,
+		MaxJitter:       5000,
+		TruncatePercent: 10,
+		DropPercent:     5,
+	}
+	loader := env.New("", nil)
+	if err := loader.Load(srv); err != nil {
+		panic(err)
+	}
+	err := dns.ListenAndServe(fmt.Sprintf("%s:%d", srv.Host, srv.Port),
+		srv.Protocol, srv)
+	if err != nil {
+		panic(err)
+	}
 }
