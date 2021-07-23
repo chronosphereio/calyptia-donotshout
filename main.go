@@ -54,7 +54,7 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 					Name:   q.Name,
 					Rrtype: dns.TypeA,
 					Class:  dns.ClassINET,
-					Ttl:    3600,
+					Ttl:    1,
 				},
 				A: net.ParseIP("127.0.0.1"),
 			})
@@ -78,9 +78,10 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 func main() {
 	godotenv.Load()
 	chaos = rand.New(rand.NewSource(time.Now().Unix()))
+	// Default
 	srv := &donotshoutServer{
-		Host:            "127.0.0.1",
-		Port:            5333,
+		Host:            "0.0.0.0",
+		Port:            53,
 		Protocol:        "udp",
 		MinJitter:       1,
 		MaxJitter:       5000,
