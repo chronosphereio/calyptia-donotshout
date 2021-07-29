@@ -28,7 +28,7 @@ func chaosRanged(bottom, top int32) int32 {
 }
 
 func chaosDo(chance int) bool {
-	return chaos.Int()%100 <= chance
+	return chaos.Int()%100 < chance
 }
 
 func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
