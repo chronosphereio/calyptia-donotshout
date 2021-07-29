@@ -71,7 +71,31 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 			}
 
 			rw.Write(data)
-		}
+
+		} else if q.Qtype == dns.TypeAAAA {
+            r := &dns.Msg{
+                MsgHdr: dns.MsgHdr{
+                    Id:            r.Id,
+                    Response:      true,
+                    Authoritative: true,
+                },
+            }
+
+            r.Question = append(r.Question, q)
+            r.Answer = append(r.Answer, &dns.AAAA{
+                Hdr: dns.RR_Header{
+                    Name:   q.Name,
+                    Rrtype: dns.TypeAAAA,
+                    Class:  dns.ClassINET,
+                    Ttl:    1,
+                },
+                AAAA: net.ParseIP("::1"),
+            })
+
+            data, _ := r.Pack()
+
+        	rw.Write(data)
+	    }
 	}
 }
 
