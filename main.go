@@ -17,7 +17,8 @@ type donotshoutServer struct {
 	Protocol        string
 	MinJitter       int32
 	MaxJitter       int32
-	Address         string
+	IPv4Address     string
+	IPv6Address     string
 	TruncatePercent int
 	DropPercent     int
 }
@@ -57,7 +58,7 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 					Class:  dns.ClassINET,
 					Ttl:    1,
 				},
-				A: net.ParseIP(srv.Address),
+				A: net.ParseIP(srv.IPv4Address),
 			})
 			data, _ := r.Pack()
 
@@ -91,7 +92,7 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 					Class:  dns.ClassINET,
 					Ttl:    1,
 				},
-				AAAA: net.ParseIP("::1"),
+				AAAA: net.ParseIP(srv.IPv6Address),
 			})
 
 			data, _ := r.Pack()
@@ -108,7 +109,8 @@ func main() {
 	srv := &donotshoutServer{
 		Host:            "0.0.0.0",
 		Port:            53,
-		Address:         "127.0.0.1",
+		IPv4Address:     "127.0.0.1",
+		IPv6Address:     "::1",
 		Protocol:        "udp",
 		MinJitter:       1,
 		MaxJitter:       5000,
