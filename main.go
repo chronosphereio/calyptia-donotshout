@@ -37,11 +37,6 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 	for _, q := range r.Question {
 		if q.Qtype == dns.TypeA {
 			fmt.Printf("A QUERY=%+v\n", q)
-			jitter := chaosRanged(srv.MinJitter, srv.MaxJitter)
-			if jitter >= 1000 {
-				fmt.Printf("jitter=%d\n", jitter)
-			}
-			td := time.NewTimer(time.Millisecond * time.Duration(jitter))
 			r := &dns.Msg{
 				MsgHdr: dns.MsgHdr{
 					Id:            r.Id,
@@ -50,7 +45,6 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 				},
 			}
 			r.Question = append(r.Question, q)
-			<-td.C
 			r.Answer = append(r.Answer, &dns.A{
 				Hdr: dns.RR_Header{
 					Name:   q.Name,
@@ -73,9 +67,17 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 				data = data[0:chaosRanged(1, int32(len(data)-1))]
 			}
 
+			jitter := chaosRanged(srv.MinJitter, srv.MaxJitter)
+			if jitter >= 1000 {
+				fmt.Printf("jitter=%d\n", jitter)
+			}
+			td := time.NewTimer(time.Millisecond * time.Duration(jitter))
+			<-td.C
+
 			rw.Write(data)
 
 		} else if q.Qtype == dns.TypeAAAA {
+			fmt.Printf("AAAA QUERY=%+v\n", q)
 			r := &dns.Msg{
 				MsgHdr: dns.MsgHdr{
 					Id:            r.Id,
@@ -96,6 +98,24 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 			})
 
 			data, _ := r.Pack()
+
+			jitter := chaosRanged(srv.MinJitter, srv.MaxJitter)
+			if jitter >= 1000 {
+				fmt.Printf("jitter=%d\n", jitter)
+			}
+			td := time.NewTimer(time.Millisecond * time.Duration(jitter))
+			<-td.C
+
+			if chaosDo(srv.DropPercent) == true {
+				fmt.Println("dropped packet")
+				return
+			}
+
+			if chaosDo(srv.TruncatePercent) == true {
+				fmt.Println("truncated packet")
+				// allow for at least the header?
+				data = data[0:chaosRanged(1, int32(len(data)-1))]
+			}
 
 			rw.Write(data)
 		}
