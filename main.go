@@ -17,6 +17,7 @@ type donotshoutServer struct {
 	Protocol        string
 	MinJitter       int32
 	MaxJitter       int32
+	Address         string
 	TruncatePercent int
 	DropPercent     int
 }
@@ -56,7 +57,7 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 					Class:  dns.ClassINET,
 					Ttl:    1,
 				},
-				A: net.ParseIP("127.0.0.1"),
+				A: net.ParseIP(srv.Address),
 			})
 			data, _ := r.Pack()
 
@@ -67,35 +68,36 @@ func (srv *donotshoutServer) ServeDNS(rw dns.ResponseWriter, r *dns.Msg) {
 
 			if chaosDo(srv.TruncatePercent) == true {
 				fmt.Println("truncated packet")
+				// allow for at least the header?
 				data = data[0:chaosRanged(1, int32(len(data)-1))]
 			}
 
 			rw.Write(data)
 
 		} else if q.Qtype == dns.TypeAAAA {
-            r := &dns.Msg{
-                MsgHdr: dns.MsgHdr{
-                    Id:            r.Id,
-                    Response:      true,
-                    Authoritative: true,
-                },
-            }
+			r := &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Id:            r.Id,
+					Response:      true,
+					Authoritative: true,
+				},
+			}
 
-            r.Question = append(r.Question, q)
-            r.Answer = append(r.Answer, &dns.AAAA{
-                Hdr: dns.RR_Header{
-                    Name:   q.Name,
-                    Rrtype: dns.TypeAAAA,
-                    Class:  dns.ClassINET,
-                    Ttl:    1,
-                },
-                AAAA: net.ParseIP("::1"),
-            })
+			r.Question = append(r.Question, q)
+			r.Answer = append(r.Answer, &dns.AAAA{
+				Hdr: dns.RR_Header{
+					Name:   q.Name,
+					Rrtype: dns.TypeAAAA,
+					Class:  dns.ClassINET,
+					Ttl:    1,
+				},
+				AAAA: net.ParseIP("::1"),
+			})
 
-            data, _ := r.Pack()
+			data, _ := r.Pack()
 
-        	rw.Write(data)
-	    }
+			rw.Write(data)
+		}
 	}
 }
 
@@ -106,6 +108,7 @@ func main() {
 	srv := &donotshoutServer{
 		Host:            "0.0.0.0",
 		Port:            53,
+		Address:         "127.0.0.1",
 		Protocol:        "udp",
 		MinJitter:       1,
 		MaxJitter:       5000,
